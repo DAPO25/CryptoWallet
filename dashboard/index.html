@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bit Wallet</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="navigation">
+        <ul>
+          <li>
+            <a href="#">
+              <span class="icon">
+                <ion-icon name="shield-checkmark"></ion-icon>
+              </span>
+              <span class="title">CryptoVault</span>
+            </a>
+          </li>
+
+          <li>
+            <a onclick="showContent('dashboard')">
+              <span class="icon">
+                <ion-icon name="home-outline"></ion-icon>
+              </span>
+              <span class="title">Home</span>
+            </a>
+          </li>
+
+          <li>
+            <a onclick="showContent('account')">
+              <span class="icon">
+                <ion-icon name="person-outline"></ion-icon>
+              </span>
+              <span class="title">My Account</span>
+            </a>
+          </li>
+
+          <li>
+            <a onclick="showContent('wallets')">
+              <span class="icon">
+                <ion-icon name="wallet-outline"></ion-icon>
+              </span>
+              <span class="title">Wallets</span>
+            </a>
+          </li>
+
+          <li>
+            <a onclick="logout()">
+              <span class="icon">
+                <ion-icon name="log-out-outline"></ion-icon>
+              </span>
+              <span class="title">Sign Out</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="main">
+        <div class="topbar">
+          <div class="toggle">
+            <ion-icon name="menu-outline"></ion-icon>
+          </div>
+
+          <div class="user">
+            <img
+              src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face"
+              alt="User"
+            />
+          </div>
+        </div>
+
+        <!-- Dashboard Content -->
+        <div id="dashboard" class="content-section active">
+          <div class="cardBox"></div>
+
+          <div class="details">
+            <div class="recentOrders">
+              <div class="cardHeader">
+                <h2>Crypto MKR</h2>
+                <!-- <a href="#" class="btn">View All</a> -->
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <td>Asset</td>
+                    <td>Amount</td>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <div class="sec-status">
+              <h2>Security Status</h2>
+
+              <div class="security-item seed-backup">
+                <p>Seed Backup <ion-icon name="shield-outline"></ion-icon></p>
+              </div>
+
+              <div class="security-item auto-backup">
+                <p>
+                  Auto Backup
+                  <ion-icon name="shield-checkmark-outline"></ion-icon>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Account Content -->
+        <div id="account" class="content-section">
+          <div class="account-content">
+            <div class="profile-card">
+              <div class="profile-header">
+                <img
+                  src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face"
+                  alt="Profile"
+                  class="profile-avatar"
+                />
+                <div class="profile-info">
+                  <h2>Alex Thompson</h2>
+                  <p><strong>Email:</strong> alex.thompson@cryptovault.com</p>
+
+                  <p>
+                    <strong>Security Level:</strong>
+                    <span class="security-badge security-high"
+                      >High Security</span
+                    >
+                  </p>
+                  <p>
+                    <strong>SeedPhrase Status:</strong>
+                    <span style="color: #8de02c">Verified</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="profile-card">
+              <h3 style="color: #667eea; margin-bottom: 20px">
+                Personal Information
+              </h3>
+              <form onsubmit="updateProfile(event)">
+                <div class="form-group">
+                  <label for="fullName">Full Name</label>
+                  <input
+                    type="text"
+                    id="fullName"
+                    value="Alex Thompson"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="email">Email Address</label>
+                  <input
+                    type="email"
+                    id="email"
+                    value="alex.thompson@cryptovault.com"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="password">Password</label>
+                  <input type="password" id="password" />
+                </div>
+
+                <button type="submit" class="btn-primary">
+                  Update Profile
+                </button>
+              </form>
+            </div>
+
+            <div class="profile-card">
+              <h3 style="color: #667eea; margin-bottom: 20px">
+                Security Settings
+              </h3>
+              <div class="form-group">
+                <label>Two-Factor Authentication</label>
+                <div style="display: flex; align-items: center; gap: 10px">
+                  <span style="color: #e9b10a">⚠️ Not Enabled</span>
+                  <button
+                    type="button"
+                    class="btn-primary"
+                    onclick="setup2FA()"
+                  >
+                    Enable 2FA
+                  </button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Password</label>
+                <button
+                  type="button"
+                  class="btn-primary"
+                  onclick="changePassword()"
+                >
+                  Change Password
+                </button>
+              </div>
+              <div class="form-group">
+                <label>Recovery Email</label>
+                <input type="email" value="recovery@alexthompson.com" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Wallets Content -->
+        <div id="wallets" class="content-section">
+          <div class="wallet-card">
+            <h3>Primary Bitcoin Wallet</h3>
+            <div style="margin: 20px 0">
+              <div style="font-size: 2rem; font-weight: bold">₿ 2.45731</div>
+              <div style="opacity: 0.8">≈ $67,234.50 USD</div>
+            </div>
+            <div style="font-size: 0.9rem; opacity: 0.8">
+              Address: bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
+            </div>
+          </div>
+
+          <div
+            class="wallet-card"
+            style="
+              background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            "
+          >
+            <h3>Ethereum Wallet</h3>
+            <div style="margin: 20px 0">
+              <div style="font-size: 2rem; font-weight: bold">Ξ 15.8932</div>
+              <div style="opacity: 0.8">≈ $31,786.40 USD</div>
+            </div>
+            <div style="font-size: 0.9rem; opacity: 0.8">
+              Address: 0x742d35Cc6632C0532925a3b8D951D3796E37890e
+            </div>
+          </div>
+
+          <div class="profile-card">
+            <h3 style="color: #667eea; margin-bottom: 20px">
+              Seed Phrase Management
+            </h3>
+
+            <div class="form-group">
+              <label>Bitcoin Wallet Seed Phrase</label>
+              <div
+                class="seed-phrase blurred"
+                id="btcSeed"
+                onclick="revealSeed('btcSeed')"
+              >
+                abandon ability able about above absent absorb abstract absurd
+                abuse access accident account accuse achieve acid acoustic
+                acquire across act action actor actress actual
+                <div class="reveal-text">Click to Reveal</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Ethereum Wallet Seed Phrase</label>
+              <div
+                class="seed-phrase blurred"
+                id="ethSeed"
+                onclick="revealSeed('ethSeed')"
+              >
+                vacuum recall phrase enter kingdom marble pool abandon category
+                fire exist example digital husband satisfy effort forward
+                current emotion random wealth typical control abandon
+                <div class="reveal-text">Click to Reveal</div>
+              </div>
+            </div>
+
+            <div
+              style="
+                margin-top: 30px;
+                padding: 20px;
+                background: #fff3cd;
+                border-radius: 10px;
+                border-left: 4px solid #ffc107;
+              "
+            >
+              <h4 style="color: #856404; margin-bottom: 10px">
+                ⚠️ Security Warning
+              </h4>
+              <p style="color: #856404; margin: 0">
+                Never share your seed phrases with anyone. Store them in a
+                secure, offline location. Your seed phrases give complete access
+                to your cryptocurrency funds.
+              </p>
+            </div>
+
+            <div style="margin-top: 20px; display: flex; gap: 10px">
+              <button
+                type="button"
+                class="btn-primary"
+                onclick="prompt('Your Seed Phrase:', 'xbsgdbvsdhavyuehjbdsuiejb')"
+              >
+                Export Seed Phrases
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ionicons -->
+    <script
+      type="module"
+      src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"
+    ></script>
+    <script
+      nomodule
+      src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"
+    ></script>
+    <script src="js/script.js"></script>
+  </body>
+</html>

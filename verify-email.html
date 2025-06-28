@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Email Verification - Bit Wallet</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Inter', sans-serif;
+      }
+      .verification-card {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        max-width: 500px;
+        width: 90%;
+      }
+      .verification-icon {
+        width: 80px;
+        height: 80px;
+        background: #28a745;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        color: white;
+        font-size: 40px;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        padding: 12px 30px;
+        border-radius: 10px;
+        font-weight: 600;
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+      }
+      .loading {
+        display: none;
+      }
+      .error {
+        color: #dc3545;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="verification-card">
+      <div class="loading" id="loading">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3">Verifying your email...</p>
+      </div>
+
+      <div class="error" id="error">
+        <div class="verification-icon" style="background: #dc3545">✗</div>
+        <h2>Verification Failed</h2>
+        <p class="text-muted mb-4" id="errorMessage">
+          There was an issue verifying your email. Please try again.
+        </p>
+        <button class="btn btn-primary" onclick="location.reload()">
+          Try Again
+        </button>
+      </div>
+
+      <div id="success">
+        <div class="verification-icon">✓</div>
+        <h2>Email Verified Successfully!</h2>
+        <p class="text-muted mb-4">
+          Your email has been verified. You can now sign in to your Bit Wallet
+          account and start managing your cryptocurrency assets.
+        </p>
+        <p class="text-info mb-4">
+          <small
+            >Redirecting to login page in
+            <span id="countdown">3</span> seconds...</small
+          >
+        </p>
+        <div class="d-grid gap-2">
+          <button
+            class="btn btn-primary"
+            onclick="window.location.href='index.html'"
+          >
+            Sign In Now
+          </button>
+          <button
+            class="btn btn-outline-secondary"
+            onclick="window.location.href='signup.html'"
+          >
+            Create Another Account
+          </button>
+          <button
+            class="btn btn-outline-warning"
+            onclick="manualUpdateVerification()"
+            id="manualUpdateBtn"
+            style="display: none"
+          >
+            Update Verification Status
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module" src="js/firebase-config.js"></script>
+    <script type="module">
+      import { auth, db } from './js/firebase-config.js'
+      import {
+        onAuthStateChanged,
+        applyActionCode,
+        isSignInWithEmailLink,
+        signInWithEmailLink,
+      } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js'
+      import {
+        updateDoc,
+        doc,
+        getDoc,
+      } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js'
+
+      const loadingDiv = document.getElementById('loading')
+      const errorDiv = document.getElementById('error')
+      const successDiv = document.getElementById('success')
+      const errorMessage = document.getElementById('errorMessage')
+
+      // Function to start countdown and redirect
+      function startCountdownAndRedirect() {
+        let countdown = 3
+        const countdownElement = document.getElementById('countdown')
+
+        const timer = setInterval(() => {
+          countdown--
+          if (countdownElement) {
+            countdownElement.textContent = countdown
+          }
+
+          if (countdown <= 0) {
+            clearInterval(timer)
+            window.location.href = 'index.html'
+          }
+        }, 1000)
+      }
+
+      // Manual verification update function
+      async function manualUpdateVerification() {
+        try {
+          const user = auth.currentUser
+          if (!user) {
+            alert('No user found. Please sign in first.')
+            return
+          }
+
+          console.log(
+            'Manually updating verification status for user:',
+            user.uid
+          )
+
+          await updateDoc(doc(db, 'users', user.uid), {
+            email_verified: true,
+            verified_at: new Date().toISOString(),
+          })
+
+          console.log('Manual verification update successful')
+          alert(
+            'Verification status updated successfully! You can now sign in.'
+          )
+
+          // Hide the manual update button
+          document.getElementById('manualUpdateBtn').style.display = 'none'
+        } catch (error) {
+          console.error('Error in manual verification update:', error)
+          alert('Error updating verification status: ' + error.message)
+        }
+      }
+
+      // Make function globally accessible
+      window.manualUpdateVerification = manualUpdateVerification
+
+      // Show loading initially
+      loadingDiv.style.display = 'block'
+      errorDiv.style.display = 'none'
+      successDiv.style.display = 'none'
+
+      // Check if user is already verified but Firestore needs updating
+      async function checkAndUpdateVerificationStatus() {
+        const user = auth.currentUser
+        if (user && user.emailVerified) {
+          try {
+            console.log(
+              'User is already verified in Firebase Auth, checking Firestore...'
+            )
+
+            // Check current Firestore status
+            const userDoc = await getDoc(doc(db, 'users', user.uid))
+            if (userDoc.exists()) {
+              const userData = userDoc.data()
+
+              if (!userData.email_verified) {
+                console.log('Firestore email_verified is false, updating...')
+
+                // Update Firestore
+                await updateDoc(doc(db, 'users', user.uid), {
+                  email_verified: true,
+                  verified_at: new Date().toISOString(),
+                })
+
+                console.log(
+                  'Firestore verification status updated successfully'
+                )
+
+                // Show success message
+                loadingDiv.style.display = 'none'
+                successDiv.style.display = 'block'
+                startCountdownAndRedirect()
+                return true
+              } else {
+                console.log('Firestore email_verified is already true')
+                return true
+              }
+            }
+          } catch (error) {
+            console.error('Error checking/updating verification status:', error)
+            return false
+          }
+        }
+        return false
+      }
+
+      // Check if this is an email verification link
+      if (isSignInWithEmailLink(auth, window.location.href)) {
+        console.log('Email verification link detected')
+
+        // Get the email from localStorage (set during signup) or prompt user
+        let email = window.localStorage.getItem('emailForSignIn')
+        if (!email) {
+          email = window.prompt('Please provide your email for confirmation')
+        }
+
+        if (email) {
+          // Complete the sign-in process
+          signInWithEmailLink(auth, email, window.location.href)
+            .then((result) => {
+              console.log('Email verification successful')
+              const user = result.user
+              console.log('User UID:', user.uid)
+              console.log('User email verified status:', user.emailVerified)
+
+              // Update the user's email_verified status in Firestore
+              return updateDoc(doc(db, 'users', user.uid), {
+                email_verified: true,
+                verified_at: new Date().toISOString(),
+              })
+            })
+            .then(() => {
+              console.log('Email verification status updated in Firestore')
+              // Clear the email from localStorage
+              window.localStorage.removeItem('emailForSignIn')
+
+              // Show success message
+              loadingDiv.style.display = 'none'
+              successDiv.style.display = 'block'
+
+              // Start countdown and automatic redirect
+              startCountdownAndRedirect()
+            })
+            .catch((error) => {
+              console.error('Error during email verification:', error)
+              console.error('Error details:', {
+                code: error.code,
+                message: error.message,
+                stack: error.stack,
+              })
+
+              // If it's a Firestore update error, show manual update option
+              if (
+                error.message.includes('Firestore') ||
+                error.message.includes('update')
+              ) {
+                loadingDiv.style.display = 'none'
+                successDiv.style.display = 'block'
+                document.getElementById('manualUpdateBtn').style.display =
+                  'block'
+                // Don't start countdown if there was an error
+                return
+              }
+
+              loadingDiv.style.display = 'none'
+              errorDiv.style.display = 'block'
+
+              if (error.code === 'auth/invalid-action-code') {
+                errorMessage.textContent =
+                  'This verification link is invalid or has expired. Please request a new verification email.'
+              } else if (error.code === 'auth/user-disabled') {
+                errorMessage.textContent =
+                  'This account has been disabled. Please contact support.'
+              } else if (error.code === 'auth/network-request-failed') {
+                errorMessage.textContent =
+                  'Network error. Please check your internet connection and try again.'
+              } else {
+                errorMessage.textContent =
+                  'An error occurred during verification. Please try again. Error: ' +
+                  error.message
+              }
+            })
+        } else {
+          // No email provided
+          loadingDiv.style.display = 'none'
+          errorDiv.style.display = 'block'
+          errorMessage.textContent =
+            'Email is required for verification. Please try the link again.'
+        }
+      } else {
+        // Not a verification link, check if user is already verified
+        onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            console.log('User found:', user.uid)
+
+            // First check if we need to update Firestore
+            const updated = await checkAndUpdateVerificationStatus()
+            if (updated) {
+              return // Already handled by the function
+            }
+
+            if (user.emailVerified) {
+              console.log('Email is already verified, updating Firestore...')
+              // Update the user's email_verified status in Firestore
+              updateDoc(doc(db, 'users', user.uid), {
+                email_verified: true,
+                verified_at: new Date().toISOString(),
+              })
+                .then(() => {
+                  console.log('Email verification status updated in Firestore')
+                  loadingDiv.style.display = 'none'
+                  successDiv.style.display = 'block'
+
+                  // Start countdown and automatic redirect
+                  startCountdownAndRedirect()
+                })
+                .catch((error) => {
+                  console.error(
+                    'Error updating email verification status:',
+                    error
+                  )
+                  loadingDiv.style.display = 'none'
+                  errorDiv.style.display = 'block'
+                  errorMessage.textContent =
+                    'Error updating verification status. Please try again.'
+                })
+            } else {
+              console.log('Email not yet verified')
+              loadingDiv.style.display = 'none'
+              errorDiv.style.display = 'block'
+              errorMessage.textContent =
+                'Email verification is required. Please check your email for the verification link.'
+            }
+          } else {
+            console.log('No user found')
+            loadingDiv.style.display = 'none'
+            errorDiv.style.display = 'block'
+            errorMessage.textContent = 'No user found. Please sign up first.'
+          }
+        })
+      }
+    </script>
+  </body>
+</html>

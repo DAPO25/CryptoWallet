@@ -312,6 +312,52 @@
       nomodule
       src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"
     ></script>
-    <script src="js/script.js"></script>
+
+    <!-- Firebase SDK -->
+    <script type="module" src="../js/firebase-config.js"></script>
+    <script type="module" src="js/script.js"></script>
+    <script type="module" src="js/seed-phrase.js"></script>
+
+    <!-- Seed Phrase Modal -->
+    <div id="seedPhraseModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>🔐 Generate Your Seed Phrase</h2>
+          <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div class="security-warning">
+            <h3>⚠️ Important Security Notice</h3>
+            <p>
+              Your seed phrase is the key to your cryptocurrency wallet. Please:
+            </p>
+            <ul>
+              <li>Write it down on paper and store it securely</li>
+              <li>Never share it with anyone</li>
+              <li>Keep it in a safe, offline location</li>
+              <li>Make multiple copies for backup</li>
+            </ul>
+          </div>
+
+          <div class="seed-phrase-container">
+            <h3>Your 12-Word Seed Phrase:</h3>
+            <div id="seedPhraseDisplay" class="seed-phrase-display">
+              <div id="seedWords" class="seed-words"></div>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button id="copySeedPhrase" class="btn-secondary">
+              <ion-icon name="copy-outline"></ion-icon>
+              Copy to Clipboard
+            </button>
+            <button id="saveSeedPhrase" class="btn-primary">
+              <ion-icon name="save-outline"></ion-icon>
+              Save to Database
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

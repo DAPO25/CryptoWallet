@@ -140,10 +140,16 @@ loginForm.addEventListener('submit', async function (e) {
 
           // Optionally resend verification email
           if (confirm('Would you like us to resend the verification email?')) {
+            const currentPath = window.location.pathname
+            const basePath = currentPath.substring(
+              0,
+              currentPath.lastIndexOf('/')
+            )
+
             try {
               console.log('Resending verification email...')
               await sendEmailVerification(user, {
-                url: window.location.origin + '/verify-email.html',
+                url: window.location.origin + '/cryptowallet/verify-email.html',
                 handleCodeInApp: true,
               })
               console.log('Verification email sent successfully')
@@ -170,6 +176,11 @@ loginForm.addEventListener('submit', async function (e) {
           return
         }
 
+        // Check if this is the first login after email verification
+        const isFirstLoginAfterVerification =
+          !userData.seed_phrase_generated && userData.email_verified
+        const hasModalBeenShown = userData.seed_phrase_modal_shown || false
+
         // Store user data in localStorage for dashboard access
         localStorage.setItem(
           'currentUser',
@@ -178,8 +189,18 @@ loginForm.addEventListener('submit', async function (e) {
             email: user.email,
             full_name: userData.full_name,
             email_verified: userData.email_verified,
+            seed_phrase_generated: userData.seed_phrase_generated || false,
+            seed_phrase_modal_shown: hasModalBeenShown,
           })
         )
+
+        // Set flag for seed phrase generation if this is first login after verification and modal hasn't been shown
+        if (isFirstLoginAfterVerification && !hasModalBeenShown) {
+          localStorage.setItem('generateSeedPhrase', 'true')
+          console.log(
+            'First login after verification - seed phrase generation required'
+          )
+        }
       } else {
         console.error('User document not found in Firestore')
         alert('User data not found. Please contact support.')

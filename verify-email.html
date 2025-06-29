@@ -91,16 +91,19 @@
             <span id="countdown">3</span> seconds...</small
           >
         </p>
-        <div class="d-grid gap-2">
-          <button
-            class="btn btn-primary"
-            onclick="window.location.href='index.html'"
+        <p class="text-muted mb-3">
+          <small
+            >If you're not redirected automatically, click the button
+            below.</small
           >
+        </p>
+        <div class="d-grid gap-2">
+          <button class="btn btn-primary" onclick="redirectToLogin()">
             Sign In Now
           </button>
           <button
             class="btn btn-outline-secondary"
-            onclick="window.location.href='signup.html'"
+            onclick="redirectToSignup()"
           >
             Create Another Account
           </button>
@@ -111,6 +114,13 @@
             style="display: none"
           >
             Update Verification Status
+          </button>
+          <button
+            class="btn btn-outline-info"
+            onclick="debugVerification()"
+            style="margin-top: 10px"
+          >
+            Debug Verification
           </button>
         </div>
       </div>
@@ -125,11 +135,18 @@
         applyActionCode,
         isSignInWithEmailLink,
         signInWithEmailLink,
+        signInWithEmailAndPassword,
+        reload,
       } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js'
       import {
         updateDoc,
         doc,
         getDoc,
+        setDoc,
+        query,
+        where,
+        getDocs,
+        collection,
       } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js'
 
       const loadingDiv = document.getElementById('loading')
@@ -150,9 +167,128 @@
 
           if (countdown <= 0) {
             clearInterval(timer)
-            window.location.href = 'index.html'
+            // Force redirect to index.html with correct path
+            const currentPath = window.location.pathname
+            const basePath = currentPath.substring(
+              0,
+              currentPath.lastIndexOf('/')
+            )
+            const loginUrl = window.location.origin + basePath + '/index.html'
+            window.location.replace(loginUrl)
           }
         }, 1000)
+
+        // Safety timeout - redirect after 5 seconds regardless
+        setTimeout(() => {
+          clearInterval(timer)
+          const currentPath = window.location.pathname
+          const basePath = currentPath.substring(
+            0,
+            currentPath.lastIndexOf('/')
+          )
+          const loginUrl = window.location.origin + basePath + '/index.html'
+          window.location.replace(loginUrl)
+        }, 5000)
+      }
+
+      // Function to handle manual redirect to login
+      function redirectToLogin() {
+        const currentPath = window.location.pathname
+        const basePath = currentPath.substring(0, currentPath.lastIndexOf('/'))
+        const loginUrl = window.location.origin + basePath + '/index.html'
+        window.location.replace(loginUrl)
+      }
+
+      // Function to handle manual redirect to signup
+      function redirectToSignup() {
+        const currentPath = window.location.pathname
+        const basePath = currentPath.substring(0, currentPath.lastIndexOf('/'))
+        const signupUrl = window.location.origin + basePath + '/signup.html'
+        window.location.replace(signupUrl)
+      }
+
+      // Debug function to help troubleshoot verification issues
+      function debugVerification() {
+        console.log('=== DEBUG VERIFICATION ===')
+        console.log('Current URL:', window.location.href)
+        console.log(
+          'Is sign-in with email link:',
+          isSignInWithEmailLink(auth, window.location.href)
+        )
+        console.log(
+          'Current user:',
+          auth.currentUser ? auth.currentUser.uid : 'null'
+        )
+        console.log(
+          'Email in localStorage:',
+          window.localStorage.getItem('emailForSignIn')
+        )
+
+        const urlParams = new URLSearchParams(window.location.search)
+        console.log('URL parameters:', Object.fromEntries(urlParams.entries()))
+
+        alert(
+          `Debug Info:\nURL: ${
+            window.location.href
+          }\nIs verification link: ${isSignInWithEmailLink(
+            auth,
+            window.location.href
+          )}\nCurrent user: ${
+            auth.currentUser ? auth.currentUser.uid : 'null'
+          }\nEmail in storage: ${window.localStorage.getItem('emailForSignIn')}`
+        )
+      }
+
+      // Function to update user verification status in Firestore
+      async function updateUserVerificationStatus(user) {
+        try {
+          console.log('Updating verification status for user:', user.uid)
+
+          // First, reload the user to get the latest verification status
+          await reload(user)
+
+          console.log(
+            'User email verified status after reload:',
+            user.emailVerified
+          )
+
+          if (user.emailVerified) {
+            // Update Firestore
+            await updateDoc(doc(db, 'users', user.uid), {
+              email_verified: true,
+              verified_at: new Date().toISOString(),
+            })
+
+            console.log('Firestore verification status updated successfully')
+            return true
+          } else {
+            console.log('User email is not verified yet')
+            return false
+          }
+        } catch (error) {
+          console.error('Error updating verification status:', error)
+          return false
+        }
+      }
+
+      // Function to check if user document exists and create if needed
+      async function ensureUserDocument(user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid))
+
+          if (!userDoc.exists()) {
+            console.log('User document does not exist, creating...')
+            await setDoc(doc(db, 'users', user.uid), {
+              email: user.email,
+              email_verified: user.emailVerified,
+              created_at: new Date().toISOString(),
+              firebase_uid: user.uid,
+            })
+            console.log('User document created successfully')
+          }
+        } catch (error) {
+          console.error('Error ensuring user document:', error)
+        }
       }
 
       // Manual verification update function
@@ -169,212 +305,237 @@
             user.uid
           )
 
-          await updateDoc(doc(db, 'users', user.uid), {
-            email_verified: true,
-            verified_at: new Date().toISOString(),
-          })
+          const success = await updateUserVerificationStatus(user)
 
-          console.log('Manual verification update successful')
-          alert(
-            'Verification status updated successfully! You can now sign in.'
-          )
+          if (success) {
+            console.log('Manual verification update successful')
+            alert(
+              'Verification status updated successfully! You can now sign in.'
+            )
 
-          // Hide the manual update button
-          document.getElementById('manualUpdateBtn').style.display = 'none'
+            // Hide the manual update button
+            document.getElementById('manualUpdateBtn').style.display = 'none'
+
+            // Show success and redirect
+            loadingDiv.style.display = 'none'
+            successDiv.style.display = 'block'
+            startCountdownAndRedirect()
+          } else {
+            alert(
+              'Email is not verified yet. Please check your email and click the verification link.'
+            )
+          }
         } catch (error) {
           console.error('Error in manual verification update:', error)
           alert('Error updating verification status: ' + error.message)
         }
       }
 
-      // Make function globally accessible
+      // Make functions globally accessible
       window.manualUpdateVerification = manualUpdateVerification
+      window.redirectToLogin = redirectToLogin
+      window.redirectToSignup = redirectToSignup
+      window.debugVerification = debugVerification
 
       // Show loading initially
       loadingDiv.style.display = 'block'
       errorDiv.style.display = 'none'
       successDiv.style.display = 'none'
 
-      // Check if user is already verified but Firestore needs updating
-      async function checkAndUpdateVerificationStatus() {
-        const user = auth.currentUser
-        if (user && user.emailVerified) {
-          try {
-            console.log(
-              'User is already verified in Firebase Auth, checking Firestore...'
-            )
+      // Main verification logic
+      async function handleVerification() {
+        try {
+          console.log('Starting verification process...')
+          console.log('Current URL:', window.location.href)
 
-            // Check current Firestore status
-            const userDoc = await getDoc(doc(db, 'users', user.uid))
-            if (userDoc.exists()) {
-              const userData = userDoc.data()
+          // Check if there are verification parameters in the URL
+          const urlParams = new URLSearchParams(window.location.search)
+          const actionCode = urlParams.get('oobCode')
+          const mode = urlParams.get('mode')
 
-              if (!userData.email_verified) {
-                console.log('Firestore email_verified is false, updating...')
+          console.log('Action code:', actionCode)
+          console.log('Mode:', mode)
 
-                // Update Firestore
-                await updateDoc(doc(db, 'users', user.uid), {
-                  email_verified: true,
-                  verified_at: new Date().toISOString(),
-                })
+          if (actionCode && mode === 'verifyEmail') {
+            console.log('Email verification link detected')
 
-                console.log(
-                  'Firestore verification status updated successfully'
+            // Get the email from localStorage or prompt user
+            let email = window.localStorage.getItem('emailForSignIn')
+            if (!email) {
+              email = window.prompt(
+                'Please provide your email for confirmation'
+              )
+            }
+
+            if (email) {
+              console.log('Processing verification for email:', email)
+
+              try {
+                // Apply the action code to verify the email
+                console.log('Applying action code for email verification...')
+                await applyActionCode(auth, actionCode)
+                console.log('Action code applied successfully')
+
+                // Find the user in Firestore and update verification status
+                console.log('Looking up user in Firestore...')
+                const q = query(
+                  collection(db, 'users'),
+                  where('email', '==', email)
                 )
+                const querySnapshot = await getDocs(q)
 
-                // Show success message
-                loadingDiv.style.display = 'none'
-                successDiv.style.display = 'block'
-                startCountdownAndRedirect()
-                return true
-              } else {
-                console.log('Firestore email_verified is already true')
-                return true
-              }
-            }
-          } catch (error) {
-            console.error('Error checking/updating verification status:', error)
-            return false
-          }
-        }
-        return false
-      }
+                if (!querySnapshot.empty) {
+                  const userDoc = querySnapshot.docs[0]
+                  const userData = userDoc.data()
 
-      // Check if this is an email verification link
-      if (isSignInWithEmailLink(auth, window.location.href)) {
-        console.log('Email verification link detected')
+                  console.log('Found user in Firestore:', userData)
 
-        // Get the email from localStorage (set during signup) or prompt user
-        let email = window.localStorage.getItem('emailForSignIn')
-        if (!email) {
-          email = window.prompt('Please provide your email for confirmation')
-        }
+                  // Update the verification status
+                  await updateDoc(doc(db, 'users', userDoc.id), {
+                    email_verified: true,
+                    verified_at: new Date().toISOString(),
+                  })
 
-        if (email) {
-          // Complete the sign-in process
-          signInWithEmailLink(auth, email, window.location.href)
-            .then((result) => {
-              console.log('Email verification successful')
-              const user = result.user
-              console.log('User UID:', user.uid)
-              console.log('User email verified status:', user.emailVerified)
+                  console.log('Verification status updated successfully')
+                  window.localStorage.removeItem('emailForSignIn')
 
-              // Update the user's email_verified status in Firestore
-              return updateDoc(doc(db, 'users', user.uid), {
-                email_verified: true,
-                verified_at: new Date().toISOString(),
-              })
-            })
-            .then(() => {
-              console.log('Email verification status updated in Firestore')
-              // Clear the email from localStorage
-              window.localStorage.removeItem('emailForSignIn')
-
-              // Show success message
-              loadingDiv.style.display = 'none'
-              successDiv.style.display = 'block'
-
-              // Start countdown and automatic redirect
-              startCountdownAndRedirect()
-            })
-            .catch((error) => {
-              console.error('Error during email verification:', error)
-              console.error('Error details:', {
-                code: error.code,
-                message: error.message,
-                stack: error.stack,
-              })
-
-              // If it's a Firestore update error, show manual update option
-              if (
-                error.message.includes('Firestore') ||
-                error.message.includes('update')
-              ) {
-                loadingDiv.style.display = 'none'
-                successDiv.style.display = 'block'
-                document.getElementById('manualUpdateBtn').style.display =
-                  'block'
-                // Don't start countdown if there was an error
-                return
-              }
-
-              loadingDiv.style.display = 'none'
-              errorDiv.style.display = 'block'
-
-              if (error.code === 'auth/invalid-action-code') {
-                errorMessage.textContent =
-                  'This verification link is invalid or has expired. Please request a new verification email.'
-              } else if (error.code === 'auth/user-disabled') {
-                errorMessage.textContent =
-                  'This account has been disabled. Please contact support.'
-              } else if (error.code === 'auth/network-request-failed') {
-                errorMessage.textContent =
-                  'Network error. Please check your internet connection and try again.'
-              } else {
-                errorMessage.textContent =
-                  'An error occurred during verification. Please try again. Error: ' +
-                  error.message
-              }
-            })
-        } else {
-          // No email provided
-          loadingDiv.style.display = 'none'
-          errorDiv.style.display = 'block'
-          errorMessage.textContent =
-            'Email is required for verification. Please try the link again.'
-        }
-      } else {
-        // Not a verification link, check if user is already verified
-        onAuthStateChanged(auth, async (user) => {
-          if (user) {
-            console.log('User found:', user.uid)
-
-            // First check if we need to update Firestore
-            const updated = await checkAndUpdateVerificationStatus()
-            if (updated) {
-              return // Already handled by the function
-            }
-
-            if (user.emailVerified) {
-              console.log('Email is already verified, updating Firestore...')
-              // Update the user's email_verified status in Firestore
-              updateDoc(doc(db, 'users', user.uid), {
-                email_verified: true,
-                verified_at: new Date().toISOString(),
-              })
-                .then(() => {
-                  console.log('Email verification status updated in Firestore')
+                  // Show success message
                   loadingDiv.style.display = 'none'
                   successDiv.style.display = 'block'
-
-                  // Start countdown and automatic redirect
                   startCountdownAndRedirect()
-                })
-                .catch((error) => {
-                  console.error(
-                    'Error updating email verification status:',
-                    error
-                  )
-                  loadingDiv.style.display = 'none'
-                  errorDiv.style.display = 'block'
+                } else {
+                  throw new Error('User not found in database')
+                }
+              } catch (error) {
+                console.error('Error processing verification:', error)
+                loadingDiv.style.display = 'none'
+                errorDiv.style.display = 'block'
+
+                if (error.code === 'auth/invalid-action-code') {
                   errorMessage.textContent =
-                    'Error updating verification status. Please try again.'
-                })
+                    'This verification link is invalid or has expired. Please request a new verification email.'
+                } else if (error.code === 'auth/user-disabled') {
+                  errorMessage.textContent =
+                    'This account has been disabled. Please contact support.'
+                } else {
+                  errorMessage.textContent =
+                    'Error processing verification. Please try again. Error: ' +
+                    error.message
+                }
+              }
             } else {
-              console.log('Email not yet verified')
               loadingDiv.style.display = 'none'
               errorDiv.style.display = 'block'
               errorMessage.textContent =
-                'Email verification is required. Please check your email for the verification link.'
+                'Email is required for verification. Please try the link again.'
             }
           } else {
-            console.log('No user found')
-            loadingDiv.style.display = 'none'
-            errorDiv.style.display = 'block'
-            errorMessage.textContent = 'No user found. Please sign up first.'
+            // Not a verification link, check current user status
+            console.log('Not a verification link, checking current user status')
+
+            // Wait a moment for auth state to settle
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+
+            const user = auth.currentUser
+            console.log('Current user:', user ? user.uid : 'null')
+
+            if (user) {
+              console.log('User found:', user.uid)
+
+              // Ensure user document exists
+              await ensureUserDocument(user)
+
+              // Check and update verification status
+              const success = await updateUserVerificationStatus(user)
+
+              if (success) {
+                loadingDiv.style.display = 'none'
+                successDiv.style.display = 'block'
+                startCountdownAndRedirect()
+              } else {
+                loadingDiv.style.display = 'none'
+                errorDiv.style.display = 'block'
+                errorMessage.textContent =
+                  'Email verification is required. Please check your email for the verification link.'
+              }
+            } else {
+              console.log('No user found and no verification parameters')
+              loadingDiv.style.display = 'none'
+              errorDiv.style.display = 'block'
+              errorMessage.textContent = 'No user found. Please sign up first.'
+            }
           }
-        })
+        } catch (error) {
+          console.error('Error during verification:', error)
+          console.error('Error details:', {
+            code: error.code,
+            message: error.message,
+            stack: error.stack,
+          })
+
+          loadingDiv.style.display = 'none'
+          errorDiv.style.display = 'block'
+
+          if (error.code === 'auth/invalid-action-code') {
+            errorMessage.textContent =
+              'This verification link is invalid or has expired. Please request a new verification email.'
+          } else if (error.code === 'auth/user-disabled') {
+            errorMessage.textContent =
+              'This account has been disabled. Please contact support.'
+          } else if (error.code === 'auth/network-request-failed') {
+            errorMessage.textContent =
+              'Network error. Please check your internet connection and try again.'
+          } else {
+            errorMessage.textContent =
+              'An error occurred during verification. Please try again. Error: ' +
+              error.message
+          }
+        }
       }
+
+      // Start the verification process
+      handleVerification()
+
+      // Listen for auth state changes to handle automatic sign-in
+      onAuthStateChanged(auth, async (user) => {
+        console.log('Auth state changed:', user ? user.uid : 'null')
+
+        if (user) {
+          console.log('User signed in automatically:', user.uid)
+
+          // If we're still loading, try to process verification
+          if (loadingDiv.style.display !== 'none') {
+            console.log(
+              'Processing verification for automatically signed-in user'
+            )
+
+            try {
+              // Ensure user document exists
+              await ensureUserDocument(user)
+
+              // Update verification status
+              const success = await updateUserVerificationStatus(user)
+
+              if (success) {
+                loadingDiv.style.display = 'none'
+                successDiv.style.display = 'block'
+                startCountdownAndRedirect()
+              } else {
+                loadingDiv.style.display = 'none'
+                errorDiv.style.display = 'block'
+                errorMessage.textContent =
+                  'Email verification is required. Please check your email for the verification link.'
+              }
+            } catch (error) {
+              console.error('Error processing automatic sign-in:', error)
+              loadingDiv.style.display = 'none'
+              errorDiv.style.display = 'block'
+              errorMessage.textContent =
+                'Error processing verification. Please try again.'
+            }
+          }
+        }
+      })
     </script>
   </body>
 </html>

@@ -1,9 +1,17 @@
 // Import Firebase functions
-import { auth } from '../../js/firebase-config.js'
+import { auth, db } from '../../js/firebase-config.js'
 import {
   signOut,
   onAuthStateChanged,
 } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js'
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  addDoc,
+  collection,
+} from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js'
+import { checkSeedPhraseGeneration } from './seed-phrase.js'
 
 // Navigation functionality
 let toggle = document.querySelector('.toggle')
@@ -24,11 +32,14 @@ const options = {
 }
 
 // Check authentication state on page load
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     console.log('User is signed in:', user.uid)
     // Update user info in the dashboard
     updateUserInfo(user)
+
+    // Check if seed phrase generation is needed
+    await checkSeedPhraseGeneration(user)
   } else {
     console.log('No user signed in, redirecting to login...')
     // Redirect to login page if not authenticated

@@ -296,8 +296,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
           // Send email verification
           console.log('Sending email verification...')
+
+          // Get the current path to ensure verification link points to the correct location
+          const currentPath = window.location.pathname
+          const basePath = currentPath.substring(
+            0,
+            currentPath.lastIndexOf('/')
+          )
+
+          // Use the dynamic path instead of hardcoded path
+          const verificationUrl =
+            window.location.origin + basePath + '/verify-email.html'
+
+          console.log('Current path:', currentPath)
+          console.log('Base path:', basePath)
+          console.log('Verification URL:', verificationUrl)
+
           await sendEmailVerification(user, {
-            url: window.location.origin + '/verify-email.html',
+            url: verificationUrl,
             handleCodeInApp: true,
           })
           console.log('Email verification sent')
@@ -307,7 +323,7 @@ document.addEventListener('DOMContentLoaded', function () {
           await setDoc(doc(db, 'users', user.uid), {
             full_name: fullName,
             email: email,
-            email_verified: user.emailVerified,
+            email_verified: false,
             created_at: new Date().toISOString(),
             firebase_uid: user.uid,
           })
@@ -319,7 +335,10 @@ document.addEventListener('DOMContentLoaded', function () {
           alert(
             'Account created successfully! Please check your email for verification.'
           )
-          window.location.href = 'index.html'
+
+          // Redirect to login page with correct path
+          const loginUrl = window.location.origin + basePath + '/index.html'
+          window.location.href = loginUrl
         } catch (error) {
           console.error('Signup error:', error)
           console.error('Error details:', {

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Email Verification - Bit Wallet</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .status {
+        padding: 15px;
+        border-radius: 5px;
+        margin: 10px 0;
+      }
+      .success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+      .info {
+        background: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+      }
+      .warning {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+      }
+      button {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        background: #5a6fd8;
+      }
+      .log {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 15px;
+        border-radius: 5px;
+        max-height: 300px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🔍 Email Verification Test</h1>
+
+      <div id="status" class="status info">Checking verification status...</div>
+
+      <div>
+        <button onclick="checkVerificationStatus()">Check Status</button>
+        <button onclick="reloadUser()">Reload User</button>
+        <button onclick="updateFirestore()">Update Firestore</button>
+        <button onclick="clearLog()">Clear Log</button>
+      </div>
+
+      <h3>Debug Information:</h3>
+      <div id="debugInfo"></div>
+
+      <h3>Console Log:</h3>
+      <div id="log" class="log"></div>
+    </div>
+
+    <script type="module">
+      import { auth, db } from './js/firebase-config.js'
+      import {
+        onAuthStateChanged,
+        reload,
+      } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js'
+      import {
+        doc,
+        getDoc,
+        updateDoc,
+      } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js'
+
+      const statusDiv = document.getElementById('status')
+      const debugInfo = document.getElementById('debugInfo')
+      const logDiv = document.getElementById('log')
+
+      function log(message) {
+        const timestamp = new Date().toLocaleTimeString()
+        logDiv.innerHTML += `[${timestamp}] ${message}\n`
+        logDiv.scrollTop = logDiv.scrollHeight
+        console.log(message)
+      }
+
+      function updateStatus(message, type = 'info') {
+        statusDiv.textContent = message
+        statusDiv.className = `status ${type}`
+      }
+
+      function updateDebugInfo(info) {
+        debugInfo.innerHTML = Object.entries(info)
+          .map(([key, value]) => `<strong>${key}:</strong> ${value}`)
+          .join('<br>')
+      }
+
+      async function checkVerificationStatus() {
+        log('Checking verification status...')
+
+        const user = auth.currentUser
+        if (!user) {
+          updateStatus('No user signed in', 'error')
+          log('No user found')
+          return
+        }
+
+        log(`User ID: ${user.uid}`)
+        log(`Email: ${user.email}`)
+        log(`Firebase Auth emailVerified: ${user.emailVerified}`)
+
+        try {
+          // Get Firestore data
+          const userDoc = await getDoc(doc(db, 'users', user.uid))
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data()
+            log(`Firestore email_verified: ${userData.email_verified}`)
+            log(`Firestore data: ${JSON.stringify(userData, null, 2)}`)
+
+            updateDebugInfo({
+              'User ID': user.uid,
+              Email: user.email,
+              'Firebase Auth Verified': user.emailVerified,
+              'Firestore Verified': userData.email_verified,
+              'Created At': userData.created_at,
+              'Verified At': userData.verified_at || 'Not set',
+            })
+
+            if (user.emailVerified && userData.email_verified) {
+              updateStatus(
+                '✅ Email verified in both Firebase Auth and Firestore',
+                'success'
+              )
+            } else if (user.emailVerified && !userData.email_verified) {
+              updateStatus(
+                '⚠️ Verified in Firebase Auth but not in Firestore',
+                'warning'
+              )
+            } else if (!user.emailVerified) {
+              updateStatus('❌ Email not verified in Firebase Auth', 'error')
+            }
+          } else {
+            log('User document does not exist in Firestore')
+            updateStatus('❌ User document not found in Firestore', 'error')
+          }
+        } catch (error) {
+          log(`Error checking status: ${error.message}`)
+          updateStatus(`Error: ${error.message}`, 'error')
+        }
+      }
+
+      async function reloadUser() {
+        log('Reloading user...')
+
+        const user = auth.currentUser
+        if (!user) {
+          updateStatus('No user signed in', 'error')
+          return
+        }
+
+        try {
+          await reload(user)
+          log('User reloaded successfully')
+          log(`Email verified after reload: ${user.emailVerified}`)
+          checkVerificationStatus()
+        } catch (error) {
+          log(`Error reloading user: ${error.message}`)
+          updateStatus(`Error reloading: ${error.message}`, 'error')
+        }
+      }
+
+      async function updateFirestore() {
+        log('Updating Firestore verification status...')
+
+        const user = auth.currentUser
+        if (!user) {
+          updateStatus('No user signed in', 'error')
+          return
+        }
+
+        try {
+          await updateDoc(doc(db, 'users', user.uid), {
+            email_verified: user.emailVerified,
+            verified_at: user.emailVerified ? new Date().toISOString() : null,
+          })
+
+          log('Firestore updated successfully')
+          checkVerificationStatus()
+        } catch (error) {
+          log(`Error updating Firestore: ${error.message}`)
+          updateStatus(`Error updating: ${error.message}`, 'error')
+        }
+      }
+
+      function clearLog() {
+        logDiv.innerHTML = ''
+      }
+
+      // Make functions globally accessible
+      window.checkVerificationStatus = checkVerificationStatus
+      window.reloadUser = reloadUser
+      window.updateFirestore = updateFirestore
+      window.clearLog = clearLog
+
+      // Listen for auth state changes
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          log(`Auth state changed: User ${user.uid} signed in`)
+          checkVerificationStatus()
+        } else {
+          log('Auth state changed: User signed out')
+          updateStatus('No user signed in', 'error')
+          updateDebugInfo({})
+        }
+      })
+
+      // Initial check
+      log('Test page loaded')
+      checkVerificationStatus()
+    </script>
+  </body>
+</html>

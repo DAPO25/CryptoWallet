@@ -3,6 +3,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.1/firebas
 import { getAnalytics } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js'
 import { getAuth } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js'
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js'
+import { getFunctions } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-functions.js'
 
 // Your web app's Firebase configuration
 // Replace this with your actual Firebase project configuration
@@ -28,7 +29,7 @@ const firebaseConfig = {
 console.log('Firebase config:', firebaseConfig)
 
 // Initialize Firebase with error handling
-let app, analytics, auth, db
+let app, analytics, auth, db, functions
 
 try {
   console.log('Initializing Firebase app...')
@@ -46,6 +47,10 @@ try {
   console.log('Initializing Firestore...')
   db = getFirestore(app)
   console.log('Firestore initialized successfully')
+
+  console.log('Initializing Functions...')
+  functions = getFunctions(app)
+  console.log('Functions initialized successfully')
 
   console.log('All Firebase services initialized successfully')
 
@@ -65,4 +70,4 @@ try {
 }
 
 // Export Firebase instances
-export { auth, db }
+export { auth, db, functions }
